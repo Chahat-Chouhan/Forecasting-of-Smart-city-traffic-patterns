@@ -9,6 +9,7 @@ loading the dataset, and performing an initial structure inspection.
 """
 
 import pandas as pd
+import holidays
 import matplotlib.pyplot as plt # Library for creating the chart canvas
 import seaborn as sns # Library for making the chart look modern and beautiful
 from sklearn.model_selection import train_test_split # Function to split data into training and testing sets
@@ -39,6 +40,9 @@ print(missing_counts, "\n")
 #  FEATURE ENGINEERING (TRAIN DATA)
 # ==========================================
 
+# Setup holiday calendar (Change 'IN' to your target country code if needed)
+local_holidays = holidays.country_holidays('IN') # This will automatically include all public holidays for the specified country
+
 # Convert text timestamps to official datetime objects
 train_data['DateTime'] = pd.to_datetime(train_data['DateTime'])
 
@@ -51,6 +55,11 @@ train_data['Year'] = train_data['DateTime'].dt.year # Captures yearly trends (e.
 # Distinguishes weekdays from weekends (0=Mon, 6=Sun)
 train_data['DayOfWeek'] = train_data['DateTime'].dt.dayofweek # Captures weekly patterns (0-6) - Identifies weekday vs weekend traffic differences
 
+# <-- NEW HOLIDAY FEATURE -->
+# Extracts the date and checks if it exists in our holiday calendar. Returns 1 for Yes, 0 for No.
+train_data['Is_Holiday'] = train_data['DateTime'].dt.date.apply(lambda d: 1 if d in local_holidays else 0)
+
+
 # ==========================================
 # FEATURE ENGINEERING (TEST DATA)
 # ==========================================
@@ -60,6 +69,8 @@ test_data['Day'] = test_data['DateTime'].dt.day
 test_data['Month'] = test_data['DateTime'].dt.month
 test_data['Year'] = test_data['DateTime'].dt.year
 test_data['DayOfWeek'] = test_data['DateTime'].dt.dayofweek
+
+test_data['Is_Holiday'] = test_data['DateTime'].dt.date.apply(lambda d: 1 if d in local_holidays else 0)
 
 # Verify the feature engineering columns were added correctly to the DataFrame
 print("\n--- TRAFFIC DATA PROCESS COMPLETED ---")
@@ -97,7 +108,7 @@ print("Success! Graph saved as 'hourly_traffic_trends.png' in the project folder
 # =============================================================================================
 
 # 1. Isolate the inputs (Features) from the answer key (Target)
-feature_columns = ['Junction','Hour','Day','Month','Year','DayOfWeek'] # These are the clues the model will use to learn patterns
+feature_columns = ['Junction','Hour','Day','Month','Year','DayOfWeek','Is_Holiday'] # These are the clues the model will use to learn patterns
 X = train_data[feature_columns]        # Clues for the model
 y = train_data['Vehicles'] # The answer the model needs to learn to predict
 
@@ -126,7 +137,7 @@ print("\nTraining the AI model... (This might take a few seconds)")
 # Initialize the Random Forest model
 # n_estimators=50 means we are using 50 individual decision trees to vote on the answer
 print("Training the compressed AI model... (Should take about 5 seconds)")
-model = RandomForestRegressor(n_estimators=50,min_samples_split=5,random_state=42)
+model = RandomForestRegressor(n_estimators=100,min_samples_split=5,random_state=42)
 
 # Train the model by feeding it the training clues and the correct answers
 model.fit(X_train, y_train)
@@ -179,7 +190,7 @@ print("Success! Future traffic predictions saved as 'final_traffic_forecast_pred
 # ==========================================
 
 import joblib # Library for saving and loading machine learning models
-joblib.dump(model, 'traffic_model.pkl')
+joblib.dump(model, 'traffic_model.pkl' , compress=3) # Save the model with moderate compression to reduce file size
 print("SUCCESS: Model successfully saved as 'traffic_model.pkl'!")
 
 
